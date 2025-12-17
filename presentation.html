@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Нейронная сеть для прогноза экзаменов</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .presentation-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .slide {
+            width: 90vw;
+            height: 90vh;
+            max-width: 1200px;
+            max-height: 675px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 20px;
+            padding: 60px;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .slide.active {
+            display: flex;
+        }
+
+        .slide::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.1) 0%, transparent 70%);
+            animation: float 20s infinite ease-in-out;
+        }
+
+        .slide::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -30%;
+            width: 150%;
+            height: 150%;
+            background: radial-gradient(circle, rgba(118, 75, 162, 0.08) 0%, transparent 70%);
+            animation: float 25s infinite ease-in-out reverse;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(30px, -30px); }
+        }
+
+        .slide-content {
+            position: relative;
+            z-index: 10;
+            color: #1a1a2e;
+        }
+
+        h1 {
+            font-size: 3.5em;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+        }
+
+        h2 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            color: #764ba2;
+            font-weight: 600;
+        }
+
+        p, li {
+            font-size: 1.3em;
+            line-height: 1.8;
+            color: #2d3436;
+            margin-bottom: 15px;
+        }
+
+        .subtitle {
+            font-size: 1.5em;
+            color: #667eea;
+            font-weight: 300;
+            margin-bottom: 40px;
+        }
+
+        .authors {
+            font-size: 1.1em;
+            color: #636e72;
+            margin-top: 30px;
+        }
+
+        ul {
+            list-style: none;
+            margin-left: 20px;
+        }
+
+        li {
+            margin-bottom: 20px;
+            padding-left: 40px;
+            position: relative;
+        }
+
+        li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .metric-box {
+            background: rgba(102, 126, 234, 0.1);
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-size: 1.2em;
+        }
+
+        .metric-value {
+            color: #764ba2;
+            font-weight: bold;
+            font-size: 1.3em;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 100;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .slide-counter {
+            position: fixed;
+            top: 30px;
+            right: 40px;
+            color: white;
+            font-size: 1.2em;
+            font-weight: 500;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px 20px;
+            border-radius: 20px;
+        }
+
+        .dots {
+            position: fixed;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .dot.active {
+            background: white;
+            transform: scale(1.2);
+        }
+
+        .comparison-table {
+            width: 100%;
+            font-size: 0.95em;
+            margin-top: 20px;
+        }
+
+        .comparison-table tr {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .comparison-table td {
+            flex: 1;
+            padding: 10px;
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 5px;
+            border-left: 3px solid #667eea;
+        }
+
+        .bar {
+            display: inline-block;
+            height: 8px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            margin-left: 10px;
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 2em; }
+            h2 { font-size: 1.5em; }
+            p, li { font-size: 1em; }
+            .slide { padding: 40px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="presentation-container">
+    <!-- Слайд 1: Титул -->
+    <div class="slide active">
+        <div class="slide-content">
+            <h1>Нейронная сеть для прогноза результатов экзаменов</h1>
+            <p class="subtitle">Разработка полносвязной нейронной сети на базе TensorFlow</p>
+            <div class="authors">
+                <p><strong>Авторы:</strong> Максимова Дарья Игоревна, Павлова Мария Павловна</p>
+                <p><strong>Группа:</strong> 15.27-ПИ01/25б</p>
+                <p><strong>Дата:</strong> Декабрь 2025</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Слайд 2: Актуальность -->
+    <div class="slide">
+        <div class="slide-content">
+            <h2>📌 Актуальность проекта</h2>
+            <ul>
+                <li>Прогнозирование успеваемости студентов имеет огромное значение для оптимизации образовательного процесса</li>
+                <li>Ранее выявление студентов группы риска позволяет своевременно оказать помощь</li>
+                <li>Машинное обучение позволяет найти скрытые закономерности в данных</li>
+                <li>Внедрение AI-систем в образование — актуальный тренд 2025 года</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Слайд 3: Описание данных -->
+    <div class="slide">
+        <div class="slide-content">
+            <h2>📊 Описание датасета</h2>
+            <div class="metric-box">
+                <p><strong>Размер:</strong> <span class="metric-value">4776 студентов</span></p>
+            </div>
+            <div class="metric-box">
+                <p><strong>Признаки:</strong> <span class="metric-value">13 исходных → 20 отобранных</span></p>
+            </div>
+            <div class="metric-box">
+                <p><strong>Целевая переменная:</strong> <span class="metric-value">Оценка на экзамене (0–100 баллов)</span></p>
+            </div>
+            <ul style="margin-top: 30px;">
+                <li>Возраст студентов, часы учёбы, посещаемость</li>
+                <li>Качество сна, метод обучения, условия обучения</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Слайд 4: Архитектура нейросети -->
+    <div class="slide">
+        <div class="slide-content">
+            <h2>🧠 Архитектура нейронной сети</h2>
+            <div style="background: rgba(102, 126, 234, 0.05); padding: 20px; border-radius: 10px; margin-top: 20px;">
+                <p style="font-family: monospace; font-size: 0.9em; line-height: 2;">
+                    Входной слой: 20 нейронов<br>
+                    ↓<br>
+                    Dense(128) + BatchNorm + LeakyReLU + Dropout(0.25)<br>
+                    ↓<br>
+                    Dense(64) + BatchNorm + LeakyReLU + Dropout(0.25)<br>
+                    ↓<br>
+                    Dense(32) + BatchNorm + LeakyReLU + Dropout(0.2)<br>
+                    ↓<br>
+                    Dense(16) + BatchNorm + LeakyReLU + Dropout(0.1)<br>
+                    ↓<br>
+                    Выходной слой: 1 нейрон (регрессия)
+                </p>
+            </div>
+            <p style="margin-top: 20px; font-size: 1.1em;"><strong>~12000 параметров</strong> | <strong>Оптимизатор: Nadam</strong></p>
+        </div>
+    </div>
+
+    <!-- Слайд 5: Ключевые факторы -->
+    <div class="slide">
+        <div class="slide-content">
+            <h2>📈 Главные факторы влияния на успех</h2>
+            <div style="margin-top: 30px;">
+                <p style="margin-bottom: 15px;"><strong style="color: #667eea;">1. Посещаемость</strong> — 22% влияния <span class="bar" style="width: 120px;"></span></p>
+                <p style="margin-bottom: 15px;"><strong style="color: #764ba2;">2. Часы учёбы</strong> — 18% влияния <span class="bar" style="width: 100px;"></span></p>
+                <p style="margin-bottom: 15px;"><strong style="color: #667eea;">3. Часы сна</strong> — 12% влияния <span class="bar" style="width: 70px;"></span></p>
+                <p><strong style="color: #764ba2;">Остальные факторы</strong> — 48% влияния <span class="bar" style="width: 250px;"></span></p>
+            </div>
+            <p style="margin-top: 40px; font-size: 1.1em; font-weight: bold; color: #764ba2;">💡 40% успеха = посещаемость + регулярная учёба</p>
+        </div>
+    </div>
+
+    <!-- Слайд 6: Сравнение моделей -->
+    <div class="slide">
+        <div class="slide-content">
+            <h2>🏆 Сравнение всех 6 моделей</h2>
+            <table class="comparison-table" style="margin-top: 20px;">
+                <tr>
+                    <td><strong>Ансамбль ⭐</strong></td>
+                    <td style="text-align: center;"><span class="metric-value">R² = 0.791</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Нейросеть</strong></td>
+                    <td style="text-align: center;">R² = 0.788</td>
+                </tr>
+                <tr>
+                    <td><strong>XGBoost</strong></td>
+                    <td style="text-align: center;">R² = 0.752</td>
+                </tr>
+                <tr>
+                    <td><strong>Random Forest</strong></td>
+                    <td style="text-align: center;">R² = 0.731</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- Слайд 7: Финальные результаты -->
+    <div class="slide">
+        <div class="slide-content">
+            <h2>✨ Финальные результаты</h2>
+            <div class="metric-box">
+                <p><strong>R² = 0.791</strong> — модель объясняет <span class="metric-value">79.1%</span> вариации оценок</p>
+            </div>
+            <div class="metric-box">
+                <p><strong>MAE = 4.08</strong> — средняя ошибка <span class="metric-value">±4 балла</span></p>
+            </div>
+            <div class="metric-box">
+                <p><strong>RMSE = 5.65</strong> — корневая среднеквадратичная ошибка</p>
+            </div>
+            <div class="metric-box">
+                <p><strong>Точность ≈ 96%</strong> — в среднем модель предсказывает верно</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Слайд 8: Веб-приложение -->
+    <div class="slide">
+        <div class="slide-content">
+            <h2>💻 Интерактивное веб-приложение</h2>
+            <ul>
+                <li><strong>Функционал:</strong> форма для ввода данных студента</li>
+                <li><strong>Графики:</strong> 5 интерактивных диаграмм Plotly</li>
+                <li><strong>Работает:</strong> полностью офлайн (без интернета)</li>
+                <li><strong>Рекомендации:</strong> персонализированные советы</li>
+                <li><strong>Адаптив:</strong> работает на всех устройствах</li>
+            </ul>
+            <p style="margin-top: 30px; font-size: 1.1em;"><strong>Откройте:</strong> <code style="background: rgba(0,0,0,0.1); padding: 5px 10px; border-radius: 5px;">exam_app.html</code></p>
+        </div>
+    </div>
+
+    <!-- Слайд 9: Рекомендации -->
+    <div class="slide">
+        <div class="slide-content">
+            <h2>🎯 Практические рекомендации</h2>
+            <ul>
+                <li><strong>Для студентов:</strong> план +15–20 баллов за 3 месяца</li>
+                <li><strong>Для преподавателей:</strong> выявление групп риска, мониторинг</li>
+                <li><strong>Для администрации:</strong> внедрение системы в ВУЗ (ROI +5000%)</li>
+                <li><strong>Главное:</strong> первый шаг — посещай занятия!</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Слайд 10: Заключение -->
+    <div class="slide">
+        <div class="slide-content">
+            <h1 style="font-size: 2.5em;">🎓 Спасибо за внимание!</h1>
+            <p style="font-size: 1.3em; margin-top: 40px; color: #667eea; font-weight: bold;">
+                Проект полностью готов к внедрению в образовательные учреждения
+            </p>
+            <div class="authors" style="margin-top: 60px;">
+                <p><strong>Контакты:</strong></p>
+                <p>Максимова Дарья Игоревна</p>
+                <p>Павлова Мария Павловна</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Управление слайдами -->
+<div class="slide-counter">
+    <span id="current-slide">1</span> / <span id="total-slides">10</span>
+</div>
+
+<div class="dots" id="dots-container"></div>
+
+<div class="controls">
+    <button onclick="prevSlide()">← Назад</button>
+    <button onclick="nextSlide()">Далее →</button>
+</div>
+
+<script>
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+
+    // Создание точек навигации
+    const dotsContainer = document.getElementById('dots-container');
+    for (let i = 0; i < totalSlides; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+        if (i === 0) dot.classList.add('active');
+        dot.onclick = () => goToSlide(i);
+        dotsContainer.appendChild(dot);
+    }
+
+    document.getElementById('total-slides').textContent = totalSlides;
+
+    function showSlide(n) {
+        slides.forEach(slide => slide.classList.remove('active'));
+        slides[n].classList.add('active');
+        
+        const dots = document.querySelectorAll('.dot');
+        dots.forEach(dot => dot.classList.remove('active'));
+        dots[n].classList.add('active');
+        
+        document.getElementById('current-slide').textContent = n + 1;
+    }
+
+    function nextSlide() {
+        currentSlide = (currentSlide + 1) % totalSlides;
+        showSlide(currentSlide);
+    }
+
+    function prevSlide() {
+        currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+        showSlide(currentSlide);
+    }
+
+    function goToSlide(n) {
+        currentSlide = n;
+        showSlide(currentSlide);
+    }
+
+    // Горячие клавиши
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') nextSlide();
+        if (e.key === 'ArrowLeft') prevSlide();
+        if (e.key >= '1' && e.key <= '9') {
+            const num = parseInt(e.key) - 1;
+            if (num < totalSlides) goToSlide(num);
+        }
+    });
+</script>
+
+</body>
+</html>
